@@ -24,7 +24,6 @@ from typing import Optional
 
 from ...file_utils import is_tf_available, is_torch_available
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -104,6 +103,10 @@ class DataProcessor(object):
         """Gets a collection of `InputExample`s for the dev set."""
         raise NotImplementedError()
 
+    def get_test_examples(self, data_dir):
+        """Gets a collection of `InputExample`s for the test set."""
+        raise NotImplementedError()
+
     def get_labels(self):
         """Gets the list of labels for this data set."""
         raise NotImplementedError()
@@ -141,7 +144,7 @@ class SingleSentenceClassificationProcessor(DataProcessor):
 
     @classmethod
     def create_from_csv(
-        cls, file_name, split_name="", column_label=0, column_text=1, column_id=None, skip_first_row=False, **kwargs
+            cls, file_name, split_name="", column_label=0, column_text=1, column_id=None, skip_first_row=False, **kwargs
     ):
         processor = cls(**kwargs)
         processor.add_examples_from_csv(
@@ -163,15 +166,15 @@ class SingleSentenceClassificationProcessor(DataProcessor):
         return processor
 
     def add_examples_from_csv(
-        self,
-        file_name,
-        split_name="",
-        column_label=0,
-        column_text=1,
-        column_id=None,
-        skip_first_row=False,
-        overwrite_labels=False,
-        overwrite_examples=False,
+            self,
+            file_name,
+            split_name="",
+            column_label=0,
+            column_text=1,
+            column_id=None,
+            skip_first_row=False,
+            overwrite_labels=False,
+            overwrite_examples=False,
     ):
         lines = self._read_tsv(file_name)
         if skip_first_row:
@@ -193,7 +196,7 @@ class SingleSentenceClassificationProcessor(DataProcessor):
         )
 
     def add_examples(
-        self, texts_or_text_and_labels, labels=None, ids=None, overwrite_labels=False, overwrite_examples=False
+            self, texts_or_text_and_labels, labels=None, ids=None, overwrite_labels=False, overwrite_examples=False
     ):
         assert labels is None or len(texts_or_text_and_labels) == len(labels)
         assert ids is None or len(texts_or_text_and_labels) == len(ids)
@@ -226,13 +229,13 @@ class SingleSentenceClassificationProcessor(DataProcessor):
         return self.examples
 
     def get_features(
-        self,
-        tokenizer,
-        max_length=None,
-        pad_on_left=False,
-        pad_token=0,
-        mask_padding_with_zero=True,
-        return_tensors=None,
+            self,
+            tokenizer,
+            max_length=None,
+            pad_on_left=False,
+            pad_token=0,
+            mask_padding_with_zero=True,
+            return_tensors=None,
     ):
         """
         Convert examples in a list of ``InputFeatures``

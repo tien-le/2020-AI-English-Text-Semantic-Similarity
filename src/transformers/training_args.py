@@ -26,6 +26,8 @@ class TrainingArguments:
                            metadata={"help": "Whether to run training."})
     do_eval: bool = field(default=False,
                           metadata={"help": "Whether to run eval on the dev set."})
+    do_pred: bool = field(default=False,
+                          metadata={"help": "Whether to run pred on the test set."})
     evaluate_during_training: bool = field(
         default=False,
         metadata={"help": "Run evaluation during training at each logging step."}
@@ -35,6 +37,8 @@ class TrainingArguments:
                                           metadata={"help": "Batch size per GPU/CPU for training."})
     per_gpu_eval_batch_size: int = field(default=8,
                                          metadata={"help": "Batch size per GPU/CPU for evaluation."})
+    per_gpu_pred_batch_size: int = field(default=8,
+                                         metadata={"help": "Batch size per GPU/CPU for prediction."})
     gradient_accumulation_steps: int = field(
         default=1,
         metadata={"help": "Number of updates steps to accumulate before performing a backward/update pass."}

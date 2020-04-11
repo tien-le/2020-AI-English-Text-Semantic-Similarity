@@ -311,6 +311,7 @@ def evaluate(args, model, tokenizer, prefix=""):
             preds = np.argmax(preds, axis=1)
         elif args.output_mode == "regression":
             preds = np.squeeze(preds)
+
         result = compute_metrics(eval_task, preds, out_label_ids)
         results.update(result)
 
@@ -324,22 +325,70 @@ def evaluate(args, model, tokenizer, prefix=""):
     return results
 
 
-def load_and_cache_examples(args, task, tokenizer, evaluate=False):
+def predict(args, model, tokenizer, prefix=""):
+    # Loop to handle MNLI double prediction (matched, mis-matched)
+    pred_task_names = ("mnli", "mnli-mm") if args.task_name == "mnli" else (args.task_name,)
+    pred_outputs_dirs = (args.output_dir, args.output_dir + "-MM") if args.task_name == "mnli" else (args.output_dir,)
+
+    results = []
+    for pred_task, pred_output_dir in zip(pred_task_names, pred_outputs_dirs):
+        pred_dataset = load_and_cache_examples(args, pred_task, tokenizer, evaluate=False, predict=True)
+
+        if not os.path.exists(pred_output_dir) and args.local_rank in [-1, 0]:
+            os.makedirs(pred_output_dir)
+
+        args.pred_batch_size = args.per_gpu_pred_batch_size * max(1, args.n_gpu)
+        # Note that DistributedSampler samples randomly
+        pred_sampler = SequentialSampler(pred_dataset)
+        pred_dataloader = DataLoader(pred_dataset, sampler=pred_sampler, batch_size=args.pred_batch_size)
+
+        # multi-gpu pred
+        if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
+            model = torch.nn.DataParallel(model)
+
+        # Predict!
+        logger.info("***** Running prediction {} *****".format(prefix))
+        logger.info("  Num examples = %d", len(pred_dataset))
+        logger.info("  Batch size = %d", args.pred_batch_size)
+        for batch in tqdm(pred_dataloader, desc="Evaluating"):
+            model.eval()
+            batch = tuple(t.to(args.device) for t in batch)
+
+            with torch.no_grad():
+                inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
+                if args.model_type != "distilbert":
+                    inputs["token_type_ids"] = (
+                        batch[2] if args.model_type in ["bert", "xlnet", "albert"] else None
+                    )  # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
+                outputs = model(**inputs)
+                _, logits = outputs[:2]
+                results.append(logits.cpu().numpy().tolist())
+
+    return results
+
+
+def load_and_cache_examples(args, task, tokenizer, evaluate=False, predict=False):
     if args.local_rank not in [-1, 0] and not evaluate:
         # Make sure only the first process in distributed training process the dataset, and the others will use the cache
         torch.distributed.barrier()
 
     processor = processors[task]()
     output_mode = output_modes[task]
+
+    key = 'train'
+    if evaluate:
+        key = 'dev'
+    if predict:
+        key = 'test'
+
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(
         args.data_dir,
-        "cached_{}_{}_{}_{}".format(
-            "dev" if evaluate else "train",
-            list(filter(None, args.model_name_or_path.split("/"))).pop(),
-            str(args.max_seq_length),
-            str(task),
-        ),
+        "cached_{}_{}_{}_{}".format(key,
+                                    list(filter(None, args.model_name_or_path.split("/"))).pop(),
+                                    str(args.max_seq_length),
+                                    str(task),
+                                    ),
     )
     if os.path.exists(cached_features_file) and not args.overwrite_cache:
         logger.info("Loading features from cached file %s", cached_features_file)
@@ -350,9 +399,14 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         if task in ["mnli", "mnli-mm"] and args.model_type in ["roberta", "xlmroberta"]:
             # HACK(label indices are swapped in RoBERTa pretrained model)
             label_list[1], label_list[2] = label_list[2], label_list[1]
-        examples = (
-            processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(args.data_dir)
-        )
+
+        if evaluate:
+            examples = processor.get_dev_examples(args.data_dir)
+        elif predict:
+            examples = processor.get_test_examples(args.data_dir)
+        else:
+            examples = processor.get_train_examples(args.data_dir)
+
         features = convert_examples_to_features(
             examples, tokenizer, max_length=args.max_seq_length, label_list=label_list, output_mode=output_mode,
         )
@@ -364,7 +418,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         # Make sure only the first process in distributed training process the dataset, and the others will use the cache
         torch.distributed.barrier()
 
-        # Convert to Tensors and build dataset
+    # Convert to Tensors and build dataset
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
     all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
     all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
@@ -374,6 +428,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         all_labels = torch.tensor([f.label for f in features], dtype=torch.float)
 
     dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_labels)
+
     return dataset
 
 
@@ -441,7 +496,11 @@ def main():
     args = argparse.Namespace(**vars(model_args), **vars(dataprocessing_args), **vars(training_args))
 
     args.do_train = True
+    args.per_gpu_train_batch_size = 8
     args.do_eval = True
+    args.per_gpu_eval_batch_size = 8
+    # args.do_pred = True
+    # args.per_gpu_pred_batch_size = 8
 
     if (os.path.exists(args.output_dir) and os.listdir(
             args.output_dir) and args.do_train and not args.overwrite_output_dir):
@@ -453,7 +512,8 @@ def main():
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = 0 if args.no_cuda else torch.cuda.device_count()
-    else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
+    else:
+        # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend="nccl")
@@ -461,19 +521,17 @@ def main():
     args.device = device
 
     # Setup logging
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN,
-    )
-    logger.warning(
-        "Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
-        args.local_rank,
-        device,
-        args.n_gpu,
-        bool(args.local_rank != -1),
-        args.fp16,
-    )
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+                        datefmt="%m/%d/%Y %H:%M:%S",
+                        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN,
+                        )
+    logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
+                   args.local_rank,
+                   device,
+                   args.n_gpu,
+                   bool(args.local_rank != -1),
+                   args.fp16,
+                   )
 
     # Set seed
     set_seed(args)
@@ -499,6 +557,7 @@ def main():
         finetuning_task=args.task_name,
         cache_dir=args.cache_dir,
     )
+
     tokenizer = AutoTokenizer.from_pretrained(
         args.tokenizer_name if args.tokenizer_name else args.model_name_or_path, cache_dir=args.cache_dir,
     )
@@ -514,7 +573,6 @@ def main():
         torch.distributed.barrier()
 
     model.to(args.device)
-
     logger.info("Training/evaluation parameters %s", args)
 
     # Training
@@ -566,6 +624,24 @@ def main():
             result = evaluate(args, model, tokenizer, prefix=prefix)
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
             results.update(result)
+
+    if args.do_pred and args.local_rank in [-1, 0]:
+        tokenizer = AutoTokenizer.from_pretrained(args.output_dir)
+        checkpoints = [args.output_dir]
+        if args.eval_all_checkpoints:
+            checkpoints = list(
+                os.path.dirname(c) for c in sorted(glob.glob(args.output_dir + "/**/" + WEIGHTS_NAME, recursive=True))
+            )
+            logging.getLogger("transformers.modeling_utils").setLevel(logging.WARN)  # Reduce logging
+        logger.info("Evaluate the following checkpoints: %s", checkpoints)
+        for checkpoint in checkpoints:
+            global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
+            prefix = checkpoint.split("/")[-1] if checkpoint.find("checkpoint") != -1 else ""
+
+            model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
+            model.to(args.device)
+            result = predict(args, model, tokenizer, prefix=prefix)
+            print(result)
 
     return results
 
