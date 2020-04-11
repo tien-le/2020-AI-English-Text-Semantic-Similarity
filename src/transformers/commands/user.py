@@ -6,8 +6,8 @@ from typing import List, Union
 
 from requests.exceptions import HTTPError
 
-from transformers.commands import BaseTransformersCLICommand
-from transformers.hf_api import HfApi, HfFolder
+from src.transformers.commands import BaseTransformersCLICommand
+from src.transformers.hf_api import HfApi, HfFolder
 
 
 UPLOAD_MAX_FILES = 15

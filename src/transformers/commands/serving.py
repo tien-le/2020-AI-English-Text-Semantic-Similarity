@@ -2,9 +2,9 @@ import logging
 from argparse import ArgumentParser, Namespace
 from typing import Any, List, Optional
 
-from transformers import Pipeline
-from transformers.commands import BaseTransformersCLICommand
-from transformers.pipelines import SUPPORTED_TASKS, pipeline
+from src.transformers import Pipeline
+from src.transformers.commands import BaseTransformersCLICommand
+from src.transformers.pipelines import SUPPORTED_TASKS, pipeline
 
 
 try:

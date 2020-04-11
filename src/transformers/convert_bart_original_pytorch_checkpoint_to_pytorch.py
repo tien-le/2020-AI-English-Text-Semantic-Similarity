@@ -24,7 +24,7 @@ import fairseq
 import torch
 from packaging import version
 
-from transformers import (
+from src.transformers import (
     BartConfig,
     BartForConditionalGeneration,
     BartForSequenceClassification,

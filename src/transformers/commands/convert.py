@@ -1,7 +1,7 @@
 from argparse import ArgumentParser, Namespace
 from logging import getLogger
 
-from transformers.commands import BaseTransformersCLICommand
+from src.transformers.commands import BaseTransformersCLICommand
 
 
 def convert_command_factory(args: Namespace):
