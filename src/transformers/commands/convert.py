@@ -77,7 +77,7 @@ class ConvertCommand(BaseTransformersCLICommand):
 
             convert_tf_checkpoint_to_pytorch(self._tf_checkpoint, self._config, self._pytorch_dump_output)
         elif self._model_type == "gpt":
-            from transformers.convert_openai_original_tf_checkpoint_to_pytorch import (
+            from src.transformers.convert_openai_original_tf_checkpoint_to_pytorch import (
                 convert_openai_checkpoint_to_pytorch,
             )
 
@@ -135,7 +135,7 @@ class ConvertCommand(BaseTransformersCLICommand):
                 self._tf_checkpoint, self._config, self._pytorch_dump_output, self._finetuning_task_name
             )
         elif self._model_type == "xlm":
-            from transformers.convert_xlm_original_pytorch_checkpoint_to_pytorch import (
+            from src.transformers.convert_xlm_original_pytorch_checkpoint_to_pytorch import (
                 convert_xlm_checkpoint_to_pytorch,
             )
 

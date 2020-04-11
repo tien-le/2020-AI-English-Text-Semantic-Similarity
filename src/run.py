@@ -384,41 +384,55 @@ class ModelArguments:
     """
 
     model_name_or_path: str = field(
+        default='albert-large-v1',
         metadata={"help": "Path to pre-trained model or shortcut name selected in the list: " + ", ".join(ALL_MODELS)}
     )
-    model_type: str = field(metadata={"help": "Model type selected in the list: " + ", ".join(MODEL_TYPES)})
+    model_type: str = field(
+        default='albert',
+        metadata={"help": "Model type selected in the list: " + ", ".join(MODEL_TYPES)})
     config_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
+        default=None,
+        metadata={"help": "Pretrained config name or path if not the same as model_name"}
     )
     tokenizer_name: Optional[str] = field(
-        default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
+        default=None,
+        metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
     )
     cache_dir: Optional[str] = field(
-        default=None, metadata={"help": "Where do you want to store the pre-trained models downloaded from s3"}
+        default=None,
+        metadata={"help": "Where do you want to store the pre-trained models downloaded from s3"}
     )
 
 
 @dataclass
 class DataProcessingArguments:
     task_name: str = field(
+        default='sts-b',
         metadata={"help": "The name of the task to train selected in the list: " + ", ".join(processors.keys())}
     )
     data_dir: str = field(
+        default='../data/input',
         metadata={"help": "The input data dir. Should contain the .tsv files (or other data files) for the task."}
     )
     max_seq_length: int = field(
         default=128,
-        metadata={
-            "help": "The maximum total input sequence length after tokenization. Sequences longer "
-                    "than this will be truncated, sequences shorter will be padded."
-        },
+        metadata={"help": "The maximum total input sequence length after tokenization. Sequences longer "
+                          "than this will be truncated, sequences shorter will be padded."
+                  },
     )
     overwrite_cache: bool = field(
-        default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
+        default=False,
+        metadata={"help": "Overwrite the cached training and evaluation sets"}
     )
 
 
 def main():
+    # ModelArguments.model_type = 'albert'
+    # ModelArguments.model_name_or_path = 'albert-large-v1'
+    # ModelArguments.task_name = 'sts-b'
+    # DataProcessingArguments.data_dir = '../data/input'
+    # TrainingArguments.output_dir = '../data/output'
+
     parser = HfArgumentParser((ModelArguments, DataProcessingArguments, TrainingArguments))
     model_args, dataprocessing_args, training_args = parser.parse_args_into_dataclasses()
 
@@ -426,12 +440,11 @@ def main():
     # but soon, we'll keep distinct sets of args, with a cleaner separation of concerns.
     args = argparse.Namespace(**vars(model_args), **vars(dataprocessing_args), **vars(training_args))
 
-    if (
-            os.path.exists(args.output_dir)
-            and os.listdir(args.output_dir)
-            and args.do_train
-            and not args.overwrite_output_dir
-    ):
+    args.do_train = True
+    args.do_eval = True
+
+    if (os.path.exists(args.output_dir) and os.listdir(
+            args.output_dir) and args.do_train and not args.overwrite_output_dir):
         raise ValueError(
             f"Output directory ({args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
         )
