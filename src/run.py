@@ -14,6 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ Finetuning the library models for sequence classification on GLUE (Bert, XLM, XLNet, RoBERTa, Albert, XLM-RoBERTa)."""
+from __future__ import absolute_import, division, print_function
+import os
+import sys
+
+sys.path.append(os.path.abspath('.'))
+os.chdir(sys.path[0])
 
 import argparse
 import glob
@@ -520,16 +526,16 @@ def main():
     # but soon, we'll keep distinct sets of args, with a cleaner separation of concerns.
     args = argparse.Namespace(**vars(model_args), **vars(dataprocessing_args), **vars(training_args))
 
-    # args.do_train = True
-    # args.per_gpu_train_batch_size = 4
-    # args.do_eval = True
-    # args.per_gpu_eval_batch_size = 4
+    args.do_train = True
+    args.per_gpu_train_batch_size = 16
+    args.do_eval = True
+    args.per_gpu_eval_batch_size = 16
     args.do_pred = True
-    args.per_gpu_pred_batch_size = 4
+    args.per_gpu_pred_batch_size = 16
 
     args.model_type = 'albert'
     args.model_name_or_path = 'albert-xlarge-v1'
-    args.max_seq_length = 128
+    args.max_seq_length = 256
     args.learning_rate = 2e-5
     args.num_train_epochs = 3.0
     args.from_tf = True
