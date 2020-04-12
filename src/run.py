@@ -24,11 +24,14 @@ import random
 from dataclasses import dataclass, field
 from typing import Optional
 
+import shutil
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
+from sklearn.model_selection import train_test_split
+import pandas as pd
 
 from src.transformers import (MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
                               WEIGHTS_NAME,
@@ -312,6 +315,7 @@ def evaluate(args, model, tokenizer, prefix=""):
         elif args.output_mode == "regression":
             preds = np.squeeze(preds)
 
+        print(preds)
         result = compute_metrics(eval_task, preds, out_label_ids)
         results.update(result)
 
@@ -347,10 +351,11 @@ def predict(args, model, tokenizer, prefix=""):
             model = torch.nn.DataParallel(model)
 
         # Predict!
-        logger.info("***** Running prediction {} *****".format(prefix))
-        logger.info("  Num examples = %d", len(pred_dataset))
-        logger.info("  Batch size = %d", args.pred_batch_size)
-        for batch in tqdm(pred_dataloader, desc="Evaluating"):
+        eval_loss = 0.0
+        nb_eval_steps = 0
+        preds = None
+        out_label_ids = None
+        for batch in tqdm(pred_dataloader, desc="Predicting"):
             model.eval()
             batch = tuple(t.to(args.device) for t in batch)
 
@@ -361,10 +366,30 @@ def predict(args, model, tokenizer, prefix=""):
                         batch[2] if args.model_type in ["bert", "xlnet", "albert"] else None
                     )  # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
                 outputs = model(**inputs)
-                _, logits = outputs[:2]
-                results.append(logits.cpu().numpy().tolist())
+                tmp_eval_loss, logits = outputs[:2]
 
-    return results
+                eval_loss += tmp_eval_loss.mean().item()
+            nb_eval_steps += 1
+            if preds is None:
+                preds = logits.detach().cpu().numpy()
+                out_label_ids = inputs["labels"].detach().cpu().numpy()
+            else:
+                preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+                out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
+
+        eval_loss = eval_loss / nb_eval_steps
+        if args.output_mode == "classification":
+            preds = np.argmax(preds, axis=1)
+        elif args.output_mode == "regression":
+            preds = np.squeeze(preds)
+
+        print(preds)
+        results.extend(preds.tolist())
+
+    result = pd.DataFrame(data=results, columns=['label'])
+    result.to_csv(path_or_buf=os.path.join(args.data_dir, 'keys.csv'), encoding='utf-8', header=None)
+
+    return None
 
 
 def load_and_cache_examples(args, task, tokenizer, evaluate=False, predict=False):
@@ -495,15 +520,35 @@ def main():
     # but soon, we'll keep distinct sets of args, with a cleaner separation of concerns.
     args = argparse.Namespace(**vars(model_args), **vars(dataprocessing_args), **vars(training_args))
 
-    args.do_train = True
-    args.per_gpu_train_batch_size = 8
-    args.do_eval = True
-    args.per_gpu_eval_batch_size = 8
-    # args.do_pred = True
-    # args.per_gpu_pred_batch_size = 8
+    # args.do_train = True
+    # args.per_gpu_train_batch_size = 4
+    # args.do_eval = True
+    # args.per_gpu_eval_batch_size = 4
+    args.do_pred = True
+    args.per_gpu_pred_batch_size = 4
+
+    args.model_type = 'albert'
+    args.model_name_or_path = 'albert-xlarge-v1'
+    args.max_seq_length = 128
+    args.learning_rate = 2e-5
+    args.num_train_epochs = 3.0
+    args.from_tf = True
+
+    # -*- AI 研习社 -*-
+    args.fold_dir = '../data/fold'
+    if os.path.exists(os.path.join(args.fold_dir, 'train.tsv')) is False:
+        data = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
+        train_data, valid_data = train_test_split(data, test_size=0.2, random_state=42, shuffle=True)
+        train_data.to_csv(os.path.join(args.fold_dir, 'train.tsv'), index=None, encoding='utf-8', sep='\t', header=None)
+        valid_data.to_csv(os.path.join(args.fold_dir, 'dev.tsv'), index=None, encoding='utf-8', sep='\t', header=None)
+        test_data = pd.read_csv(os.path.join(args.data_dir, 'test.csv'))
+        test_data.to_csv(os.path.join(args.fold_dir, 'test.tsv'), sep='\t', encoding='utf-8', index=None, header=None)
+    args.data_dir = args.fold_dir
+    # -*- AI 研习社 -*-
 
     if (os.path.exists(args.output_dir) and os.listdir(
             args.output_dir) and args.do_train and not args.overwrite_output_dir):
+        shutil.rmtree(args.output_dir)
         raise ValueError(
             f"Output directory ({args.output_dir}) already exists and is not empty. Use --overwrite_output_dir to overcome."
         )
