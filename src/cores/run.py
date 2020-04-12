@@ -541,7 +541,8 @@ def main():
     args.from_tf = True
 
     # -*- AI 研习社 -*-
-    args.fold_dir = '../data/fold'
+    args.fold_dir = '../../data/fold'
+    args.data_dir = '../../data/input'
     if os.path.exists(os.path.join(args.fold_dir, 'train.tsv')) is False:
         data = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
         train_data, valid_data = train_test_split(data, test_size=0.2, random_state=42, shuffle=True)
