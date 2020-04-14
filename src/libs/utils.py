@@ -206,7 +206,7 @@ if __name__ == '__main__':
     #     max_sequence_length=128
     # )
 
-    # util.generate_fold_train_dev(train_csv_path='../../data/input/train.csv', test_csv_path='../../data/input/test.csv',
-    #                              fold_dir='../../data/fold')
+    util.generate_fold_train_dev(train_csv_path='../../data/input/train.csv', test_csv_path='../../data/input/test.csv',
+                                 fold_dir='../../data/fold')
 
-    util.generate_keys_csv()
+    # util.generate_keys_csv()

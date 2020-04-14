@@ -357,7 +357,6 @@ def predict(args, model, tokenizer, prefix=""):
             model = torch.nn.DataParallel(model)
 
         # Predict!
-        eval_loss = 0.0
         nb_eval_steps = 0
         preds = None
         out_label_ids = None
@@ -374,7 +373,6 @@ def predict(args, model, tokenizer, prefix=""):
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
 
-                eval_loss += tmp_eval_loss.mean().item()
             nb_eval_steps += 1
             if preds is None:
                 preds = logits.detach().cpu().numpy()
@@ -383,7 +381,6 @@ def predict(args, model, tokenizer, prefix=""):
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
                 out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
 
-        eval_loss = eval_loss / nb_eval_steps
         if args.output_mode == "classification":
             preds = np.argmax(preds, axis=1)
         elif args.output_mode == "regression":
@@ -392,7 +389,7 @@ def predict(args, model, tokenizer, prefix=""):
         results.extend(preds.tolist())
 
     result = pd.DataFrame(data=results, columns=['label'])
-    result.to_csv(path_or_buf=os.path.join(args.data_dir, 'keys' + prefix + '.csv'), encoding='utf-8', header=None)
+    result.to_csv(path_or_buf=os.path.join(args.data_dir, 'keys.csv'), encoding='utf-8', header=None)
 
     return None
 
@@ -440,9 +437,9 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False, predict=False
         features = convert_examples_to_features(
             examples, tokenizer, max_length=args.max_seq_length, label_list=label_list, output_mode=output_mode,
         )
-        if args.local_rank in [-1, 0]:
-            logger.info("Saving features into cached file %s", cached_features_file)
-            torch.save(features, cached_features_file)
+        # if args.local_rank in [-1, 0]:
+        #     logger.info("Saving features into cached file %s", cached_features_file)
+        #     torch.save(features, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
         # Make sure only the first process in distributed training process the dataset, and the others will use the cache
@@ -541,8 +538,11 @@ def main():
     args.overwrite_output_dir = '../../data/output'
 
     for index in range(5):
+        args.output_dir = '../../data/output_' + str(index)
         args.data_dir = '../../data/fold_' + str(index)
 
+        if os.path.exists(args.output_dir) is False:
+            os.makedirs(args.output_dir)
         if (os.path.exists(args.output_dir) and os.listdir(
                 args.output_dir) and args.do_train and not args.overwrite_output_dir):
             shutil.rmtree(args.output_dir)

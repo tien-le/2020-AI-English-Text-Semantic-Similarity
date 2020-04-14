@@ -72,7 +72,7 @@ class TrainingArguments:
         default=500,
         metadata={"help": "Log every X updates steps."})
     save_steps: int = field(
-        default=500,
+        default=5000,
         metadata={"help": "Save checkpoint every X updates steps."})
     save_total_limit: Optional[int] = field(
         default=None,
