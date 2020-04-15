@@ -200,7 +200,7 @@ class Utils(object):
     def generate_keys_csv(self):
         result = None
         for index in range(5):
-            current_data = pd.read_csv('../../data/fold_' + str(index) + '/keys' + str(index) + '.csv', header=None)
+            current_data = pd.read_csv('../../data/fold_' + str(index) + '/keys.csv', header=None)
             current_data.columns = ['a', 'b']
             if result is None:
                 result = current_data
