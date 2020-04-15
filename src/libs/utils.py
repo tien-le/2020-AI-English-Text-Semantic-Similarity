@@ -74,6 +74,19 @@ class Utils(object):
             train_tsv_data['text_b'] = train_data[:, 1]
             train_tsv_data['label'] = train_data[:, 2]
 
+            # 改成小写
+            dev_tsv_data['text_a'] = dev_tsv_data['text_a'].apply(lambda a: a.lower())
+            dev_tsv_data['text_b'] = dev_tsv_data['text_b'].apply(lambda a: a.lower())
+            train_tsv_data['text_a'] = train_tsv_data['text_a'].apply(lambda a: a.lower())
+            train_tsv_data['text_b'] = train_tsv_data['text_b'].apply(lambda a: a.lower())
+
+            dev_tsv_data = pd.concat(
+                [dev_tsv_data[['text_a', 'text_b', 'label']], dev_tsv_data[['text_b', 'text_a', 'label']]],
+                ignore_index=True)
+            train_tsv_data = pd.concat(
+                [train_tsv_data[['text_a', 'text_b', 'label']], train_tsv_data[['text_b', 'text_a', 'label']]],
+                ignore_index=True)
+
             fold_index_dir = os.path.join(fold_dir + '_' + str(index))
             test_tsv_data = pd.read_csv(test_csv_path)
             if os.path.exists(fold_index_dir) is False:
@@ -84,10 +97,12 @@ class Utils(object):
 
             test_tsv_data.to_csv(os.path.join(fold_index_dir, 'test.tsv'), header=None, index=None, sep='\t',
                                  encoding='utf-8')
-            dev_tsv_data.to_csv(os.path.join(fold_index_dir, 'dev.tsv'), header=None, index=None, sep='\t',
-                                encoding='utf-8')
-            train_tsv_data.to_csv(os.path.join(fold_index_dir, 'train.tsv'), header=None, index=None, sep='\t',
-                                  encoding='utf-8')
+            dev_tsv_data[['text_a', 'text_b', 'label']].to_csv(os.path.join(fold_index_dir, 'dev.tsv'), header=None,
+                                                               index=None, sep='\t',
+                                                               encoding='utf-8')
+            train_tsv_data[['text_a', 'text_b', 'label']].to_csv(os.path.join(fold_index_dir, 'train.tsv'), header=None,
+                                                               index=None, sep='\t',
+                                                               encoding='utf-8')
 
     def generate_train_dev_test(self, train_csv_path, test_csv_path, max_sequence_length):
         """
