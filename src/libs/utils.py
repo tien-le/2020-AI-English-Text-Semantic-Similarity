@@ -18,6 +18,31 @@ class Utils(object):
     def __init__(self):
         pass
 
+    def match(self, data):
+        result = pd.DataFrame(columns=['label'], data=data['label'])
+
+        text_as = data['text_a'].values.tolist()
+        text_bs = data['text_b'].values.tolist()
+
+        rouge = Rouge()
+        for a_index in range(len(text_as)):
+            rouge_score_std = rouge.get_scores(text_as[a_index], text_bs[a_index])
+            rouge_score_std = rouge_score_std[0]['rouge-l']['f']
+            for b_index in range(len(text_bs)):
+                if a_index != b_index:
+                    rouge_score_cur = rouge.get_scores(text_as[a_index], text_bs[b_index])
+                    rouge_score_cur = rouge_score_cur[0]['rouge-l']['f']
+                    if rouge_score_cur > rouge_score_std:
+                        tmp = text_bs[b_index]
+                        text_bs[b_index] = text_bs[a_index]
+                        text_bs[a_index] = tmp
+                        rouge_score_std = rouge_score_cur
+
+        result['text_a'] = text_as
+        result['text_b'] = text_bs
+
+        return result
+
     @staticmethod
     def replace_typical_misspell(text):
         mispell_dict = {'colour': 'color', 'centre': 'center', 'didnt': 'did not', 'doesnt': 'does not',
@@ -89,95 +114,6 @@ class Utils(object):
         mispellings, mispellings_re = _get_mispell(mispell_dict)
 
         return mispellings_re.sub(_replace, text.lower())
-
-    def match(self, data):
-        result = pd.DataFrame(columns=['label'], data=data['label'])
-
-        text_as = data['text_a'].values.tolist()
-        text_bs = data['text_b'].values.tolist()
-
-        rouge = Rouge()
-        for a_index in range(len(text_as)):
-            rouge_score_std = rouge.get_scores(text_as[a_index], text_bs[a_index])
-            rouge_score_std = rouge_score_std[0]['rouge-l']['f']
-            for b_index in range(len(text_bs)):
-                if a_index != b_index:
-                    rouge_score_cur = rouge.get_scores(text_as[a_index], text_bs[b_index])
-                    rouge_score_cur = rouge_score_cur[0]['rouge-l']['f']
-                    if rouge_score_cur > rouge_score_std:
-                        tmp = text_bs[b_index]
-                        text_bs[b_index] = text_bs[a_index]
-                        text_bs[a_index] = tmp
-                        rouge_score_std = rouge_score_cur
-
-        result['text_a'] = text_as
-        result['text_b'] = text_bs
-
-        return result
-
-    def generate_fold_train_dev(self, fold_dir, train_csv_path, test_csv_path):
-        data_result_list = [[], [], [], [], []]
-
-        data = pd.read_csv(filepath_or_buffer=train_csv_path, encoding='utf-8')
-        data.sort_values(by=['socre'], inplace=True)
-        for index in range(0, data.shape[0], 5):
-            data_result_list[0].append([data.iloc[index, 0], data.iloc[index, 1], data.iloc[index, 2]])
-            data_result_list[1].append([data.iloc[index + 1, 0], data.iloc[index + 1, 1], data.iloc[index + 1, 2]])
-            data_result_list[2].append([data.iloc[index + 2, 0], data.iloc[index + 2, 1], data.iloc[index + 2, 2]])
-            if index + 3 >= data.shape[0]:
-                break
-            data_result_list[3].append([data.iloc[index + 3, 0], data.iloc[index + 3, 1], data.iloc[index + 3, 2]])
-            data_result_list[4].append([data.iloc[index + 4, 0], data.iloc[index + 4, 1], data.iloc[index + 4, 2]])
-
-        for index in range(5):
-            train_data = copy.deepcopy(data_result_list)
-            dev_data = train_data[index]
-            train_data.remove(train_data[index])
-
-            dev_data = np.asarray(dev_data)
-
-            dev_tsv_data = pd.DataFrame(data=dev_data[:, 0].tolist(), columns=['text_a'])
-            dev_tsv_data['text_b'] = dev_data[:, 1]
-            dev_tsv_data['label'] = dev_data[:, 2]
-
-            train_data = np.concatenate((train_data[0], train_data[1], train_data[2], train_data[3]))
-
-            train_data = np.asarray(train_data)
-            train_tsv_data = pd.DataFrame(data=train_data[:, 0].tolist(), columns=['text_a'])
-            train_tsv_data['text_b'] = train_data[:, 1]
-            train_tsv_data['label'] = train_data[:, 2]
-
-            test_tsv_data = pd.read_csv(test_csv_path)
-            # 改成小写
-            train_tsv_data['text_a'] = train_tsv_data['text_a'].apply(lambda a: Utils.replace_typical_misspell(a))
-            train_tsv_data['text_b'] = train_tsv_data['text_b'].apply(lambda a: Utils.replace_typical_misspell(a))
-            dev_tsv_data['text_a'] = dev_tsv_data['text_a'].apply(lambda a: Utils.replace_typical_misspell(a))
-            dev_tsv_data['text_b'] = dev_tsv_data['text_b'].apply(lambda a: Utils.replace_typical_misspell(a))
-            test_tsv_data['text_a'] = test_tsv_data['text_a'].apply(lambda a: Utils.replace_typical_misspell(a))
-            test_tsv_data['text_b'] = test_tsv_data['text_b'].apply(lambda a: Utils.replace_typical_misspell(a))
-
-            dev_tsv_data = pd.concat(
-                [dev_tsv_data[['text_a', 'text_b', 'label']], dev_tsv_data[['text_b', 'text_a', 'label']]],
-                ignore_index=True)
-            train_tsv_data = pd.concat(
-                [train_tsv_data[['text_a', 'text_b', 'label']], train_tsv_data[['text_b', 'text_a', 'label']]],
-                ignore_index=True)
-
-            fold_index_dir = os.path.join(fold_dir + '_' + str(index))
-            if os.path.exists(fold_index_dir) is False:
-                os.makedirs(fold_index_dir)
-
-            dev_tsv_data = shuffle(dev_tsv_data)
-            train_tsv_data = shuffle(train_tsv_data)
-
-            test_tsv_data.to_csv(os.path.join(fold_index_dir, 'test.tsv'), header=None, index=None, sep='\t',
-                                 encoding='utf-8')
-            dev_tsv_data[['text_a', 'text_b', 'label']].to_csv(os.path.join(fold_index_dir, 'dev.tsv'), header=None,
-                                                               index=None, sep='\t',
-                                                               encoding='utf-8')
-            train_tsv_data[['text_a', 'text_b', 'label']].to_csv(os.path.join(fold_index_dir, 'train.tsv'), header=None,
-                                                                 index=None, sep='\t',
-                                                                 encoding='utf-8')
 
     def generate_train_dev_test(self, train_csv_path, test_csv_path, max_sequence_length):
         """
@@ -272,7 +208,73 @@ class Utils(object):
         dev[['text_a', 'text_b', 'label']].to_csv(path_or_buf='../../data/fold/dev.tsv', sep='\t', header=None,
                                                   index=None)
 
-    def generate_keys_csv(self):
+    @staticmethod
+    def generate_fold_train_dev(fold_dir, train_csv_path, test_csv_path):
+        data_result_list = [[], [], [], [], []]
+
+        data = pd.read_csv(filepath_or_buffer=train_csv_path, encoding='utf-8')
+        data.sort_values(by=['socre'], inplace=True)
+        for index in range(0, data.shape[0], 5):
+            data_result_list[0].append([data.iloc[index, 0], data.iloc[index, 1], data.iloc[index, 2]])
+            data_result_list[1].append([data.iloc[index + 1, 0], data.iloc[index + 1, 1], data.iloc[index + 1, 2]])
+            data_result_list[2].append([data.iloc[index + 2, 0], data.iloc[index + 2, 1], data.iloc[index + 2, 2]])
+            if index + 3 >= data.shape[0]:
+                break
+            data_result_list[3].append([data.iloc[index + 3, 0], data.iloc[index + 3, 1], data.iloc[index + 3, 2]])
+            data_result_list[4].append([data.iloc[index + 4, 0], data.iloc[index + 4, 1], data.iloc[index + 4, 2]])
+
+        for index in range(5):
+            train_data = copy.deepcopy(data_result_list)
+            dev_data = train_data[index]
+            train_data.remove(train_data[index])
+
+            dev_data = np.asarray(dev_data)
+
+            dev_tsv_data = pd.DataFrame(data=dev_data[:, 0].tolist(), columns=['text_a'])
+            dev_tsv_data['text_b'] = dev_data[:, 1]
+            dev_tsv_data['label'] = dev_data[:, 2]
+
+            train_data = np.concatenate((train_data[0], train_data[1], train_data[2], train_data[3]))
+
+            train_data = np.asarray(train_data)
+            train_tsv_data = pd.DataFrame(data=train_data[:, 0].tolist(), columns=['text_a'])
+            train_tsv_data['text_b'] = train_data[:, 1]
+            train_tsv_data['label'] = train_data[:, 2]
+
+            test_tsv_data = pd.read_csv(test_csv_path)
+            # 改成小写
+            train_tsv_data['text_a'] = train_tsv_data['text_a'].apply(lambda a: Utils.replace_typical_misspell(a))
+            train_tsv_data['text_b'] = train_tsv_data['text_b'].apply(lambda a: Utils.replace_typical_misspell(a))
+            dev_tsv_data['text_a'] = dev_tsv_data['text_a'].apply(lambda a: Utils.replace_typical_misspell(a))
+            dev_tsv_data['text_b'] = dev_tsv_data['text_b'].apply(lambda a: Utils.replace_typical_misspell(a))
+            test_tsv_data['text_a'] = test_tsv_data['text_a'].apply(lambda a: Utils.replace_typical_misspell(a))
+            test_tsv_data['text_b'] = test_tsv_data['text_b'].apply(lambda a: Utils.replace_typical_misspell(a))
+
+            dev_tsv_data = pd.concat(
+                [dev_tsv_data[['text_a', 'text_b', 'label']], dev_tsv_data[['text_b', 'text_a', 'label']]],
+                ignore_index=True)
+            train_tsv_data = pd.concat(
+                [train_tsv_data[['text_a', 'text_b', 'label']], train_tsv_data[['text_b', 'text_a', 'label']]],
+                ignore_index=True)
+
+            fold_index_dir = os.path.join(fold_dir + '_' + str(index))
+            if os.path.exists(fold_index_dir) is False:
+                os.makedirs(fold_index_dir)
+
+            dev_tsv_data = shuffle(dev_tsv_data)
+            train_tsv_data = shuffle(train_tsv_data)
+
+            test_tsv_data.to_csv(os.path.join(fold_index_dir, 'test.tsv'), header=None, index=None, sep='\t',
+                                 encoding='utf-8')
+            dev_tsv_data[['text_a', 'text_b', 'label']].to_csv(os.path.join(fold_index_dir, 'dev.tsv'), header=None,
+                                                               index=None, sep='\t',
+                                                               encoding='utf-8')
+            train_tsv_data[['text_a', 'text_b', 'label']].to_csv(os.path.join(fold_index_dir, 'train.tsv'), header=None,
+                                                                 index=None, sep='\t',
+                                                                 encoding='utf-8')
+
+    @staticmethod
+    def generate_keys_csv():
         result = None
         for index in range(5):
             current_data = pd.read_csv('../../data/fold_' + str(index) + '/keys.csv', header=None)
@@ -286,17 +288,16 @@ class Utils(object):
         result['a'] = result['a'].astype(int)
         result.to_csv('../../data/fold/key.csv', index=None, header=None)
 
-
-if __name__ == '__main__':
-    util = Utils()
-
-    # util.generate_train_dev_test(
-    #     train_csv_path='../../data/input/train.csv',
-    #     test_csv_path='../../data/input/test.csv',
-    #     max_sequence_length=128
-    # )
-
-    util.generate_fold_train_dev(train_csv_path='../../data/input/train.csv', test_csv_path='../../data/input/test.csv',
-                                 fold_dir='../../data/fold')
-
-    # util.generate_keys_csv()
+# if __name__ == '__main__':
+#     util = Utils()
+#
+#     # util.generate_train_dev_test(
+#     #     train_csv_path='../../data/input/train.csv',
+#     #     test_csv_path='../../data/input/test.csv',
+#     #     max_sequence_length=128
+#     # )
+#
+#     util.generate_fold_train_dev(train_csv_path='../../data/input/train.csv', test_csv_path='../../data/input/test.csv',
+#                                  fold_dir='../../data/fold')
+#
+#     # util.generate_keys_csv()
