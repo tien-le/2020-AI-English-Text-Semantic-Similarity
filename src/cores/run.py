@@ -181,7 +181,7 @@ def main(args):
     :param args:
     :return:
     """
-    for index in range(5):
+    for index in range(10):
         args.output_dir = '../../data/output_' + str(index)
         args.data_dir = '../../data/fold_' + str(index)
 
@@ -360,7 +360,7 @@ def run():
     main(args=args)
     Utils().generate_keys_csv()
     if args.pseudo_labelling:
-        for index in range(5):
+        for index in range(10):
             args.data_dir = '../../data/fold_' + str(index)
             keys_csv_data = pd.read_csv(os.path.join(args.data_dir, 'keys.csv'), names=['index', 'score'], sep=',')
             test_tsv_data = pd.read_csv(os.path.join(args.data_dir, 'test.tsv'), names=['text_a', 'text_b'], sep='\t')
@@ -373,7 +373,7 @@ def run():
 
             data.to_csv(os.path.join(args.data_dir, 'train.tsv'), sep='\t', index=None, header=None)
 
-    args.num_train_epochs = 2
+    args.num_train_epochs = 3
     main(args=args)
     Utils().generate_keys_csv()
 
