@@ -211,7 +211,7 @@ class Utils(object):
 
     @staticmethod
     def generate_fold_train_dev(fold_dir, train_csv_path, test_csv_path):
-        data_result_list = [[], [], [], [], [], [], [], [], [], []]
+        data_result_list = [[], [], [], [], []]
 
         data = pd.read_csv(filepath_or_buffer=train_csv_path, encoding='utf-8')
         data = pd.concat([data[['text_a', 'text_b', 'socre']], data[['text_b', 'text_a', 'socre']]], ignore_index=True)
@@ -219,21 +219,16 @@ class Utils(object):
         data.reset_index(drop=True, inplace=True)
         data = data[['text_a', 'text_b', 'socre']]
 
-        for index in range(0, data.shape[0], 10):
+        for index in range(0, data.shape[0], 5):
             data_result_list[0].append([data.iloc[index, 0], data.iloc[index, 1], data.iloc[index, 2]])
             data_result_list[1].append([data.iloc[index + 1, 0], data.iloc[index + 1, 1], data.iloc[index + 1, 2]])
             data_result_list[2].append([data.iloc[index + 2, 0], data.iloc[index + 2, 1], data.iloc[index + 2, 2]])
+            if index + 3 >= data.shape[0]:
+                break
             data_result_list[3].append([data.iloc[index + 3, 0], data.iloc[index + 3, 1], data.iloc[index + 3, 2]])
             data_result_list[4].append([data.iloc[index + 4, 0], data.iloc[index + 4, 1], data.iloc[index + 4, 2]])
-            data_result_list[5].append([data.iloc[index + 5, 0], data.iloc[index + 5, 1], data.iloc[index + 5, 2]])
-            if index + 6 >= data.shape[0]:
-                break
-            data_result_list[6].append([data.iloc[index + 6, 0], data.iloc[index + 6, 1], data.iloc[index + 6, 2]])
-            data_result_list[7].append([data.iloc[index + 7, 0], data.iloc[index + 7, 1], data.iloc[index + 7, 2]])
-            data_result_list[8].append([data.iloc[index + 8, 0], data.iloc[index + 8, 1], data.iloc[index + 8, 2]])
-            data_result_list[9].append([data.iloc[index + 9, 0], data.iloc[index + 9, 1], data.iloc[index + 9, 2]])
 
-        for index in range(10):
+        for index in range(5):
             train_data = copy.deepcopy(data_result_list)
             dev_data = train_data[index]
             dev_data = np.asarray(dev_data)
