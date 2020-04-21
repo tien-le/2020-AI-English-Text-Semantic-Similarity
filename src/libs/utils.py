@@ -221,10 +221,10 @@ class Utils(object):
 
         for index in range(0, data.shape[0], 5):
             data_result_list[0].append([data.iloc[index, 0], data.iloc[index, 1], data.iloc[index, 2]])
+            if index + 1 >= data.shape[0]:
+                break
             data_result_list[1].append([data.iloc[index + 1, 0], data.iloc[index + 1, 1], data.iloc[index + 1, 2]])
             data_result_list[2].append([data.iloc[index + 2, 0], data.iloc[index + 2, 1], data.iloc[index + 2, 2]])
-            if index + 3 >= data.shape[0]:
-                break
             data_result_list[3].append([data.iloc[index + 3, 0], data.iloc[index + 3, 1], data.iloc[index + 3, 2]])
             data_result_list[4].append([data.iloc[index + 4, 0], data.iloc[index + 4, 1], data.iloc[index + 4, 2]])
 
@@ -283,7 +283,6 @@ class Utils(object):
         result /= 5
         result['a'] = result['a'].astype(int)
         result.to_csv('../../data/fold/key.csv', index=None, header=None)
-
 
 # if __name__ == '__main__':
 #     util = Utils()
