@@ -156,12 +156,13 @@ def predict(args, model, tokenizer, prefix=""):
             model.eval()
             batch = tuple(t.to(args.device) for t in batch)
 
+            # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
             with torch.no_grad():
                 inputs = {"input_ids": batch[0], "attention_mask": batch[1], "labels": batch[3]}
                 if args.model_type != "distilbert":
                     inputs["token_type_ids"] = (
                         batch[2] if args.model_type in ["bert", "xlnet", "albert"] else None
-                    )  # XLM, DistilBERT, RoBERTa, and XLM-RoBERTa don't use segment_ids
+                    )
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
 

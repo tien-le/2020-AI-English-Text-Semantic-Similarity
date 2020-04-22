@@ -373,9 +373,9 @@ def run():
 
             data.to_csv(os.path.join(args.data_dir, 'train.tsv'), sep='\t', index=None, header=None)
 
-    args.num_train_epochs = 3
-    main(args=args)
-    Utils().generate_keys_csv()
+    # args.num_train_epochs = 3
+    # main(args=args)
+    # Utils().generate_keys_csv()
 
 
 if __name__ == "__main__":

@@ -360,6 +360,7 @@ class StsbProcessor(DataProcessor):
             else:
                 label = line[2]
 
+            examples.append(InputExample(guid=guid, text_a=text_b, text_b=text_a, label=label))
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
