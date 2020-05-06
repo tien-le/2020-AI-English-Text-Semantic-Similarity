@@ -32,9 +32,9 @@ from src.transformers import (MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
 from src.transformers import glue_convert_examples_to_features as convert_examples_to_features
 from src.transformers import glue_output_modes as output_modes
 from src.transformers import glue_processors as processors
-from src.cores.evaluate import *
-from src.cores.predict import *
-from src.cores.train import *
+from src.cores.albert_evaluate import *
+from src.cores.albert_predict import *
+from src.cores.albert_train import *
 
 from src.libs.utils import Utils
 

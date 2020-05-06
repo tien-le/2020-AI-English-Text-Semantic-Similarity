@@ -38,6 +38,7 @@ from src.transformers import glue_compute_metrics as compute_metrics
 from src.transformers import glue_convert_examples_to_features as convert_examples_to_features
 from src.transformers import glue_output_modes as output_modes
 from src.transformers import glue_processors as processors
+from src.cores.albert_evaluate import evaluate
 
 try:
     from torch.utils.tensorboard import SummaryWriter

@@ -6,7 +6,7 @@ import torch
 import pandas as pd
 
 from test_tube import HyperOptArgumentParser
-from src.cores.longformer_classifier import LONGFORMERClassifier
+from src.cores.longformer_regression import LONGFORMERRegression
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -26,7 +26,7 @@ def load_model_from_experiment(experiment_folder: str):
     ]
     checkpoint_path = experiment_folder + "/checkpoints/" + checkpoints[-1]
 
-    model = LONGFORMERClassifier.load_from_metrics(weights_path=checkpoint_path, tags_csv=tags_csv_file)
+    model = LONGFORMERRegression.load_from_metrics(weights_path=checkpoint_path, tags_csv=tags_csv_file)
 
     # Make sure model is in prediction mode
     model.eval()

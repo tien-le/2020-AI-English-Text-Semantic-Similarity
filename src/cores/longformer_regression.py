@@ -16,22 +16,22 @@ from torchnlp.encoders import LabelEncoder
 from torchnlp.utils import collate_tensors, lengths_to_mask
 from src.longformer.longformer import Longformer
 
-from src.libs.utils import mask_fill
+from src.libs.utils import LongformerUtils
 from src.libs.dataloader import sentiment_analysis_dataset
 from src.cores.longformer_tokenizer import LONGFORMERTextEncoder
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-class LONGFORMERClassifier(pl.LightningModule):
+class LONGFORMERRegression(pl.LightningModule):
     """
-    Sample model to show how to use LongFormer to classify sentences.
+    Sample model to show how to use LongFormer to regression sentences.
 
     :param hparams: ArgumentParser containing the hyperparameters.
     """
 
     def __init__(self, hparams) -> None:
-        super(LONGFORMERClassifier, self).__init__()
+        super(LONGFORMERRegression, self).__init__()
         self.hparams = hparams
         self.batch_size = hparams.batch_size
 
@@ -96,7 +96,7 @@ class LONGFORMERClassifier(pl.LightningModule):
 
     def predict(self, samples: dict) -> dict:
         """ Predict function.
-        :param sample: dictionary with the text we want to classify.
+        :param sample: dictionary with the text we want to regression.
 
         Returns:
             Dictionary with the input text and the predicted label.
@@ -146,7 +146,7 @@ class LONGFORMERClassifier(pl.LightningModule):
         word_embeddings = self.bert(tokens, mask)[0]
 
         # Average Pooling
-        word_embeddings = mask_fill(
+        word_embeddings = LongformerUtils.mask_fill(
             0.0, tokens, word_embeddings, self.tokenizer.padding_index
         )
         sentemb = torch.sum(word_embeddings, 1)
@@ -440,12 +440,6 @@ class LONGFORMERClassifier(pl.LightningModule):
             options=[0, 1, 2, 3, 4, 5],
         )
         # Data Args:
-        parser.add_argument(
-            "--label_set",
-            default="pos,neg",
-            type=str,
-            help="Classification labels set.",
-        )
         parser.add_argument(
             "--train_csv",
             default="data/imdb_reviews_train.csv",
