@@ -28,10 +28,10 @@ def sentiment_analysis_dataset(
     """
 
     def load_dataset(path):
-        df = pd.read_csv(path)
-        text = list(df.text)
-        # label = list(df.sentiment)
-        label = list(df.label)
+        df = pd.read_csv(path, header=None, sep='\t')
+        df['text'] = df[0] + ' ' + df[1]
+        text = df['text'].values
+        label = list(df[2])
         assert len(text) == len(label)
         return Dataset(collate_lists(text, label))
 

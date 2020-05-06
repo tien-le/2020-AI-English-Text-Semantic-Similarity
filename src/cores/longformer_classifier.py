@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader, RandomSampler
-from transformers import AutoModel
 
 import pytorch_lightning as pl
 
@@ -63,22 +62,18 @@ class LONGFORMERRegression(pl.LightningModule):
         # Tokenizer
         self.tokenizer = LONGFORMERTextEncoder('../../data/roberta-base-pytorch/')
 
-        # Label Encoder
-        self.label_encoder = LabelEncoder(self.hparams.label_set.split(","), reserved_labels=[])
-        self.label_encoder.unknown_index = None
-
         # Classification head
         self.classification_head = nn.Sequential(
             nn.Linear(self.encoder_features, self.encoder_features * 2),
             nn.Tanh(),
             nn.Linear(self.encoder_features * 2, self.encoder_features),
             nn.Tanh(),
-            nn.Linear(self.encoder_features, self.label_encoder.vocab_size),
+            nn.Linear(self.encoder_features, self.hparams.num_labels),
         )
 
     def __build_loss(self):
         """ Initializes the loss function/s. """
-        self._loss = nn.CrossEntropyLoss()
+        self._loss = nn.BCELoss()
 
     def unfreeze_encoder(self) -> None:
         """ un-freezes the encoder layer. """
@@ -112,20 +107,19 @@ class LONGFORMERRegression(pl.LightningModule):
                 model_tokens.append(model_input['tokens'])
                 model_lengths.append(model_input['lengths'].numpy()[0])
 
-            model_inputs = dict({'tokens': torch.ones((len(samples), max(model_lengths))).to(torch.int64).to(device=DEVICE)})
+            model_inputs = dict(
+                {'tokens': torch.ones((len(samples), max(model_lengths))).to(torch.int64).to(device=DEVICE)})
             for token_index in range(len(model_tokens)):
                 current_tokens = model_tokens[token_index].flatten()
 
-                model_inputs['tokens'][token_index][:len(current_tokens)] = current_tokens.to(torch.int64).to(device=DEVICE)
+                model_inputs['tokens'][token_index][:len(current_tokens)] = current_tokens.to(torch.int64).to(
+                    device=DEVICE)
 
             model_inputs['lengths'] = torch.Tensor(np.asarray(model_lengths)).to(torch.int64).to(device=DEVICE)
             model_out = self.forward(**model_inputs)
             logits = model_out["logits"].cpu().numpy()
-            predicted_labels = [
-                self.label_encoder.index_to_token[prediction]
-                for prediction in np.argmax(logits, axis=1)
-            ]
-            sample["predicted_label"] = predicted_labels
+
+            sample["predicted_label"] = logits[0]
 
         return sample
 
@@ -153,7 +147,9 @@ class LONGFORMERRegression(pl.LightningModule):
         sum_mask = mask.unsqueeze(-1).expand(word_embeddings.size()).float().sum(1)
         sentemb = sentemb / sum_mask
 
-        return {"logits": self.classification_head(sentemb)}
+        logits = self.classification_head(sentemb).flatten()
+
+        return {"logits": logits}
 
     def loss(self, predictions: dict, targets: dict) -> torch.tensor:
         """
@@ -186,7 +182,7 @@ class LONGFORMERRegression(pl.LightningModule):
 
         # Prepare target:
         try:
-            targets = {"labels": self.label_encoder.batch_encode(sample["label"])}
+            targets = {"labels": torch.Tensor([torch.Tensor([float(i)]) for i in sample["label"]])}
             return inputs, targets
         except RuntimeError:
             raise Exception("Label encoder found an unknown label.")
@@ -211,9 +207,7 @@ class LONGFORMERRegression(pl.LightningModule):
             loss_val = loss_val.unsqueeze(0)
 
         tqdm_dict = {"train_loss": loss_val}
-        output = OrderedDict(
-            {"loss": loss_val, "progress_bar": tqdm_dict, "log": tqdm_dict}
-        )
+        output = OrderedDict({"loss": loss_val, "progress_bar": tqdm_dict, "log": tqdm_dict})
 
         # can also return just a scalar instead of a dict (return loss_val)
         return output

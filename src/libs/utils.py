@@ -8,14 +8,16 @@ sys.path.append(os.path.abspath('.'))
 os.chdir(sys.path[0])
 import re
 import copy
+import random
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-import random
 import os
 import torch
-from sklearn.utils import shuffle
+
+from sklearn.model_selection import train_test_split
 from datetime import datetime
+from sklearn.utils import shuffle
+
 from pytorch_lightning.logging import TestTubeLogger
 
 
@@ -289,7 +291,7 @@ class Utils(object):
         result.to_csv('../../data/fold/key.csv', index=None, header=None)
 
 
-class LongformerUtils(object):
+class LongformerClassifier(object):
     @staticmethod
     def setup_testube_logger() -> TestTubeLogger:
         """ Function that sets the TestTubeLogger to be used. """
