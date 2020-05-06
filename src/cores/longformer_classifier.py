@@ -11,7 +11,6 @@ from torch.utils.data import DataLoader, RandomSampler
 import pytorch_lightning as pl
 
 from test_tube import HyperOptArgumentParser
-from torchnlp.encoders import LabelEncoder
 from torchnlp.utils import collate_tensors, lengths_to_mask
 from src.longformer.longformer import Longformer
 
