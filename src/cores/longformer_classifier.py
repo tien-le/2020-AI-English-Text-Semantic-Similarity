@@ -14,22 +14,22 @@ from test_tube import HyperOptArgumentParser
 from torchnlp.utils import collate_tensors, lengths_to_mask
 from src.longformer.longformer import Longformer
 
-from src.libs.utils import LongformerUtils
+from src.libs.utils import LongformerClassifier
 from src.libs.dataloader import sentiment_analysis_dataset
 from src.cores.longformer_tokenizer import LONGFORMERTextEncoder
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
-class LONGFORMERRegression(pl.LightningModule):
+class LONGFORMERClassifier(pl.LightningModule):
     """
-    Sample model to show how to use LongFormer to regression sentences.
+    Sample model to show how to use LongFormer to classifier sentences.
 
     :param hparams: ArgumentParser containing the hyperparameters.
     """
 
     def __init__(self, hparams) -> None:
-        super(LONGFORMERRegression, self).__init__()
+        super(LONGFORMERClassifier, self).__init__()
         self.hparams = hparams
         self.batch_size = hparams.batch_size
 
@@ -72,7 +72,7 @@ class LONGFORMERRegression(pl.LightningModule):
 
     def __build_loss(self):
         """ Initializes the loss function/s. """
-        self._loss = nn.BCELoss()
+        self._loss = nn.MSELoss()
 
     def unfreeze_encoder(self) -> None:
         """ un-freezes the encoder layer. """
@@ -90,7 +90,7 @@ class LONGFORMERRegression(pl.LightningModule):
 
     def predict(self, samples: dict) -> dict:
         """ Predict function.
-        :param sample: dictionary with the text we want to regression.
+        :param sample: dictionary with the text we want to classifier.
 
         Returns:
             Dictionary with the input text and the predicted label.
@@ -139,14 +139,14 @@ class LONGFORMERRegression(pl.LightningModule):
         word_embeddings = self.bert(tokens, mask)[0]
 
         # Average Pooling
-        word_embeddings = LongformerUtils.mask_fill(
+        word_embeddings = LongformerClassifier.mask_fill(
             0.0, tokens, word_embeddings, self.tokenizer.padding_index
         )
         sentemb = torch.sum(word_embeddings, 1)
         sum_mask = mask.unsqueeze(-1).expand(word_embeddings.size()).float().sum(1)
         sentemb = sentemb / sum_mask
 
-        logits = self.classification_head(sentemb).flatten()
+        logits = self.classification_head(sentemb)
 
         return {"logits": logits}
 
@@ -160,7 +160,9 @@ class LONGFORMERRegression(pl.LightningModule):
         Returns:
             torch.tensor with loss value.
         """
-        return self._loss(predictions["logits"], targets["labels"])
+        loss = self._loss(predictions["logits"].view(-1), targets["labels"].view(-1))
+
+        return loss
 
     def prepare_sample(self, sample: list, prepare_target: bool = True) -> (dict, dict):
         """

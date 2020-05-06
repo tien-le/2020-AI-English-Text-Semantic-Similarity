@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     # parameters
     hparams.gpus = 1
-    hparams.batch_size = 4
+    hparams.batch_size = 12
     hparams.accumulate_grad_batches = 1
     hparams.loader_workers = 0
     hparams.nr_frozen_epochs = 1

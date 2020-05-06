@@ -3,7 +3,9 @@
 
 ## TODO
   
--[x]    句子切割成短语后, 生成多个text_a和text_b对, 这些text_a和text_b可能会混淆对应.
+-[x]    
+        句子切割成短语后, 生成多个text_a和text_b对, 这些text_a和text_b可能会混淆对应.
+        
 -[x]
         baseline:text_a和text_b, 训练和验证集随机划分:
         线上结果：88.62
@@ -37,5 +39,4 @@
         线上结果：90.35
 
 -[x] 
-
         Longformer
