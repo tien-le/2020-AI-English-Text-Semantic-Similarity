@@ -37,7 +37,7 @@ def load_model_from_experiment(experiment_folder: str):
 
 if __name__ == "__main__":
     parser = HyperOptArgumentParser(description="Minimalist BERT Classifier", add_help=True)
-    parser.add_argument("--experiment", default='../../data/experiments/lightning_logs/version_30-04-2020--16-32-26',
+    parser.add_argument("--experiment", default='../../data/experiments/lightning_logs/version_07-05-2020--11-28-30',
                         type=str, help="Path to the experiment folder.")
     hparams = parser.parse_args()
     print("Loading model...")
@@ -46,24 +46,21 @@ if __name__ == "__main__":
     print("Please write a movie review or quit to exit the interactive shell:")
     # Get input sentence
 
-    test_path = '../../data/input/test.csv'
-    test = pd.read_csv(test_path, encoding='utf-8')
+    test_path = '../../data/fold_0/test.tsv'
+    test = pd.read_csv(test_path, encoding='utf-8', sep='\t', header=None)
 
     labels = []
     for index in range(0, test.shape[0], 4):
         if index % 1000 == 0:
             print(index)
 
-        try:
-            label = model.predict(
-                samples=[{'text': test.iloc[index, 0]}, {'text': test.iloc[index + 1, 0]},
-                         {'text': test.iloc[index + 2, 0]},
-                         {'text': test.iloc[index + 3, 0]}])['predicted_label']
-        except:
-            label = model.predict(
-                samples=[{'text': test.iloc[index, 0]}, {'text': test.iloc[index + 1, 0]}])['predicted_label']
+        label = model.predict(
+            samples=[{'text': test.iloc[index + 0, 0] + ' ' + test.iloc[index + 0, 1]},
+                     {'text': test.iloc[index + 1, 0] + ' ' + test.iloc[index + 1, 1]},
+                     {'text': test.iloc[index + 2, 0] + ' ' + test.iloc[index + 2, 1]},
+                     {'text': test.iloc[index + 3, 0] + ' ' + test.iloc[index + 3, 1]}])['predicted_label']
 
         labels.extend(label)
 
     test['label'] = labels
-    test['label'].to_csv('../../data/output/keys_longformer.csv', header=None, encoding='utf-8')
+    test['label'].to_csv('../../data/fold_0/keys.csv', header=None, encoding='utf-8')

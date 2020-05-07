@@ -118,7 +118,7 @@ class LONGFORMERClassifier(pl.LightningModule):
             model_out = self.forward(**model_inputs)
             logits = model_out["logits"].cpu().numpy()
 
-            sample["predicted_label"] = logits[0]
+            sample["predicted_label"] = logits.flatten()
 
         return sample
 
