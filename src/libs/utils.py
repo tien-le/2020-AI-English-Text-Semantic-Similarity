@@ -290,6 +290,36 @@ class Utils(object):
         result['a'] = result['a'].astype(int)
         result.to_csv('../../data/fold/key.csv', index=None, header=None)
 
+    @staticmethod
+    def generate_adversarial_validaion(input_train_path, input_dev_path, input_test_path, output_test_path,
+                                       output_train_path):
+        # text, label
+        train = pd.read_csv(input_train_path, sep='\t')
+        train.columns = ['text_a', 'text_b', 'label']
+        # text, label
+        dev = pd.read_csv(input_dev_path, sep='\t')
+        dev.columns = ['text_a', 'text_b', 'label']
+        # text
+        test = pd.read_csv(input_test_path, sep='\t')
+        test.columns = ['text_a', 'text_b']
+
+        train['label'] = 1
+        dev['label'] = 1
+        test['label'] = 0
+
+        data = pd.concat([train, dev, test], ignore_index=True)
+
+        train_X, test_X, train_y, test_y = train_test_split(data[['text_a', 'text_b']].values,
+                                                            data['label'].values,
+                                                            test_size=0.2,
+                                                            random_state=0)
+
+        train = pd.DataFrame({"text_a": train_X[:, 0], "text_b": train_X[:, 1], "label": train_y})
+        test = pd.DataFrame({"text_a": test_X[:, 0], "text_b": test_X[:, 1], "label": test_y})
+
+        train.to_csv(output_train_path, index=None, header=None, encoding='utf-8', sep='\t')
+        test.to_csv(output_test_path, index=None, header=None, encoding='utf-8', sep='\t')
+
 
 class LongformerClassifier(object):
     @staticmethod
@@ -401,8 +431,14 @@ class LongformerClassifier(object):
 
         return train, dev
 
-# if __name__ == '__main__':
-#     util = Utils()
+
+if __name__ == '__main__':
+    util = Utils()
+    util.generate_adversarial_validaion(input_train_path='../../data/fold_0/train.tsv',
+                                        input_dev_path='../../data/fold_0/dev.tsv',
+                                        input_test_path='../../data/fold_0/test.tsv',
+                                        output_test_path='../../data/adversarial_validation/test.tsv',
+                                        output_train_path='../../data/adversarial_validation/train.tsv')
 #     #
 #     #     # util.generate_train_dev_test(
 #     #     #     train_csv_path='../../data/input/train.csv',
